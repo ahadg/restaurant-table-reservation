@@ -20,18 +20,32 @@
     "types": [
       "vitest/globals",
       "node"
-    ]
+    ],
+    "paths": {
+      "@app/common": [
+        "./libs/common/src/index.ts"
+      ],
+      "@app/common/*": [
+        "./libs/common/src/*"
+      ],
+      "@app/database": [
+        "./libs/database/src/index.ts"
+      ],
+      "@app/database/*": [
+        "./libs/database/src/*"
+      ],
+      "@app/kafka": [
+        "./libs/kafka/src/index.ts"
+      ],
+      "@app/kafka/*": [
+        "./libs/kafka/src/*"
+      ]
+    }
   },
   "files": [],
   "references": [
     {
-      "path": "./apps/restaurant-table-reservation/tsconfig.app.json"
-    },
-    {
       "path": "./apps/api-gateway/tsconfig.app.json"
-    },
-    {
-      "path": "./apps/auth-service/tsconfig.app.json"
     }
   ]
 }
