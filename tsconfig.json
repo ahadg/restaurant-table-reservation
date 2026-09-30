@@ -46,6 +46,12 @@
   "references": [
     {
       "path": "./apps/api-gateway/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/restaurant-table-reservation/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/restaurant-service/tsconfig.app.json"
     }
   ]
 }
