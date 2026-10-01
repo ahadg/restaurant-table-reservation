@@ -8,7 +8,12 @@ import {
     integer,
     index,
 } from "drizzle-orm/pg-core";
-import { users } from "./users.js";
+
+// NOTE: No import of `users` here. In a microservices architecture,
+// each service owns its own database independently. The `ownerId`
+// column stores the user's UUID for cross-service lookups, but does
+// NOT have a foreign key constraint to the `users` table (which is
+// owned by the Auth Service).
 
 export const restaurants = pgTable(
     "restaurants",
@@ -20,7 +25,8 @@ export const restaurants = pgTable(
         email: varchar("email", { length: 255 }),
         cuisine: varchar("cuisine", { length: 100 }),
         isActive: boolean("is_active").default(true).notNull(),
-        ownerId: uuid("owner_id").references(() => users.id, { onDelete: "cascade" }),
+        // Plain UUID — no FK reference to users table (owned by Auth Service)
+        ownerId: uuid("owner_id"),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     },

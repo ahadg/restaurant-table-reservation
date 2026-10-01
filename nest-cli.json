@@ -67,6 +67,15 @@
       "compilerOptions": {
         "tsConfigPath": "apps/restaurant-service/tsconfig.app.json"
       }
+    },
+    "table-service": {
+      "type": "application",
+      "root": "apps/table-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/table-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/table-service/tsconfig.app.json"
+      }
     }
   }
 }

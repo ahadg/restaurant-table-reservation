@@ -52,6 +52,9 @@
     },
     {
       "path": "./apps/restaurant-service/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/table-service/tsconfig.app.json"
     }
   ]
 }
