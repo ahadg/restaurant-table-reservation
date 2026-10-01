@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package table;
+
+service TableService {
+  rpc getFloor (getFloorRequest) returns (FloorResponse);
+  rpc insertFloor (insertFloorRequest) returns (FloorResponse);
+  rpc updateFloor (updateFloorRequest) returns (FloorResponse);
+  rpc deleteFloor (deleteFloorRequest) returns (FloorResponse);
+}
+
+message getFloorRequest {
+  string restaurantId = 1;
+}
+
+message insertFloorRequest {
+  string restaurantId = 1;
+  string name = 2;
+  int32 floorNumber = 3;
+}
+
+message updateFloorRequest {
+  string id = 1;
+  string name = 2;
+  int32 floorNumber = 3;
+}
+
+message deleteFloorRequest {
+  string id = 1;
+}
+
+message FloorResponse {
+  string id = 1;
+  string restaurantId = 2;
+  string name = 3;
+  int32 floorNumber = 4;
+}

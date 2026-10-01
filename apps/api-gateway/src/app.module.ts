@@ -32,9 +32,18 @@ import { SERVICES, SERVICES_PORTS, JwtStrategy } from '@app/common';
           url: process.env.RESTAURANT_SERVICE_URL || `127.0.0.1:${SERVICES_PORTS['restaurant-service'] || 50051}`,
         },
       },
+      {
+        name: SERVICES.TABLE_SERVICE,
+        transport: Transport.GRPC,
+        options: {
+          package: 'table',
+          protoPath: join(process.cwd(), 'libs/common/src/proto/table.proto'),
+          url: process.env.TABLE_SERVICE_URL || `127.0.0.1:${SERVICES_PORTS['table-service'] || 50052}`,
+        },
+      }
     ]),
   ],
   controllers: [AppController],
   providers: [AppService, JwtStrategy],
 })
-export class AppModule {}
+export class AppModule { }

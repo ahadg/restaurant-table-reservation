@@ -35,9 +35,17 @@ interface RestaurantGrpcService {
   addHouseRule(data: any): Observable<any>;
 }
 
+interface TableGrpcService {
+  getFloor(data: { restaurantId: string }): Observable<any>;
+  insertFloor(data: { restaurantId: string; name: string; floorNumber: number }): Observable<any>;
+  updateFloor(data: { id: string; name: string; floorNumber: number }): Observable<any>;
+  deleteFloor(data: { id: string }): Observable<any>;
+}
+
 @Controller()
 export class AppController implements OnModuleInit {
   private restaurantService!: RestaurantGrpcService;
+  private tableService!: TableGrpcService;
 
   constructor(
     private readonly appService: AppService,
@@ -45,12 +53,15 @@ export class AppController implements OnModuleInit {
     //In AppModule (app.module.ts), we registered the gRPC client with NestJS ClientsModule:
     // We inject the raw ClientGrpc instance:
     @Inject(SERVICES.RESTAURANT_SERVICE) private readonly restaurantClient: ClientGrpc,
+    @Inject(SERVICES.TABLE_SERVICE) private readonly tableClient: ClientGrpc,
   ) { }
 
   onModuleInit() {
     // in onModuleInit(), NestJS reads restaurant.proto and dynamically generates client methods matching the gRPC service definition:
     this.restaurantService =
       this.restaurantClient.getService<RestaurantGrpcService>('RestaurantService');
+    this.tableService =
+      this.tableClient.getService<TableGrpcService>('TableService');
   }
 
   @Get()
@@ -248,4 +259,20 @@ export class AppController implements OnModuleInit {
       throw new HttpException(error?.details || error?.message || 'Failed to add house rule', HttpStatus.BAD_REQUEST);
     }
   }
+
+
+  // --- Table Endpoints (gRPC) ---
+  @UseGuards(JwtAuthGuard)
+  @Get('/restaurants/:id/floors')
+  async getFloors(@Param('id') restaurantId: string) {
+    try {
+      return await firstValueFrom(
+        this.tableService.getFloor({ restaurantId }),
+      );
+    } catch (error: any) {
+      throw new HttpException(error?.details || error?.message || 'Failed to get floors', HttpStatus.BAD_REQUEST);
+    }
+  }
+
+
 }
