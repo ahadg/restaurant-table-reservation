@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package restaurant;
+
+service RestaurantService {
+  rpc CreateRestaurant (CreateRestaurantRequest) returns (RestaurantResponse);
+  rpc GetRestaurant (GetRestaurantByIdRequest) returns (RestaurantResponse);
+  rpc ListRestaurants (ListRestaurantsRequest) returns (ListRestaurantsResponse);
+  rpc UpdateRestaurant (UpdateRestaurantRequest) returns (RestaurantResponse);
+  rpc DeleteRestaurant (DeleteRestaurantRequest) returns (DeleteRestaurantResponse);
+  rpc AddLocation (AddLocationRequest) returns (LocationResponse);
+  rpc SetOpeningHours (SetOpeningHoursRequest) returns (OpeningHoursListResponse);
+  rpc AddHouseRule (AddHouseRuleRequest) returns (HouseRuleResponse);
+}
+
+message RestaurantResponse {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string phone = 4;
+  string email = 5;
+  string cuisine = 6;
+  bool isActive = 7;
+  string ownerId = 8;
+  string createdAt = 9;
+  string updatedAt = 10;
+  LocationResponse location = 11;
+  repeated OpeningHoursResponse openingHours = 12;
+  repeated HouseRuleResponse houseRules = 13;
+}
+
+message CreateRestaurantRequest {
+  string name = 1;
+  string description = 2;
+  string phone = 3;
+  string email = 4;
+  string cuisine = 5;
+  string ownerId = 6;
+}
+
+message GetRestaurantByIdRequest {
+  string id = 1;
+}
+
+message ListRestaurantsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message ListRestaurantsResponse {
+  repeated RestaurantResponse restaurants = 1;
+  int32 total = 2;
+}
+
+message UpdateRestaurantRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string phone = 4;
+  string email = 5;
+  string cuisine = 6;
+}
+
+message DeleteRestaurantRequest {
+  string id = 1;
+}
+
+message DeleteRestaurantResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message AddLocationRequest {
+  string restaurantId = 1;
+  string address = 2;
+  string city = 3;
+  string state = 4;
+  string zipCode = 5;
+  string country = 6;
+  string latitude = 7;
+  string longitude = 8;
+}
+
+message LocationResponse {
+  string id = 1;
+  string restaurantId = 2;
+  string address = 3;
+  string city = 4;
+  string state = 5;
+  string zipCode = 6;
+  string country = 7;
+  string latitude = 8;
+  string longitude = 9;
+}
+
+message OpeningHoursItem {
+  int32 dayOfWeek = 1;
+  string openTime = 2;
+  string closeTime = 3;
+  bool isClosed = 4;
+}
+
+message SetOpeningHoursRequest {
+  string restaurantId = 1;
+  repeated OpeningHoursItem hours = 2;
+}
+
+message OpeningHoursResponse {
+  string id = 1;
+  string restaurantId = 2;
+  int32 dayOfWeek = 3;
+  string openTime = 4;
+  string closeTime = 5;
+  bool isClosed = 6;
+}
+
+message OpeningHoursListResponse {
+  repeated OpeningHoursResponse hours = 1;
+}
+
+message AddHouseRuleRequest {
+  string restaurantId = 1;
+  string rule = 2;
+}
+
+message HouseRuleResponse {
+  string id = 1;
+  string restaurantId = 2;
+  string rule = 3;
+  string createdAt = 4;
+}

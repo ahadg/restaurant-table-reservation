@@ -5,7 +5,11 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "builder": "rspack",
-    "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
+    "tsConfigPath": "apps/api-gateway/tsconfig.app.json",
+    "assets": [
+      "**/*.proto"
+    ],
+    "watchAssets": true
   },
   "monorepo": true,
   "root": "apps/api-gateway",
