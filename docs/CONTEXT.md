@@ -1,121 +1,89 @@
 # Restaurant Table Reservation — Project Context
 
-NestJS 12 ESM monorepo for restaurant table reservations. An HTTP API gateway fronts auth (TCP microservice) and restaurant (gRPC microservice). Shared libraries live under `libs/`. Table reservation itself is named in constants but not implemented yet.
+NestJS 12 ESM monorepo. HTTP API gateway fronts auth (TCP), restaurant/table/reservation (gRPC), and notifications (TCP). Reservation create/cancel publishes Kafka events consumed by notification-service and email-service.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   Client --> GW["api-gateway :3000 HTTP"]
-  GW -->|"TCP MessagePattern"| AUTH["auth-service :3001"]
-  GW -->|"gRPC restaurant.RestaurantService"| REST["restaurant-service :50051"]
+  GW -->|"TCP"| AUTH["auth-service :3001"]
+  GW -->|"gRPC"| REST["restaurant-service :50051"]
+  GW -->|"gRPC"| TABLE["table-service :50052"]
+  GW -->|"gRPC"| RSV["reservation-service :50053"]
+  GW -->|"TCP"| NOTIF["notification-service :3003"]
+  RSV -->|"Kafka reservation.created / reservation.cancelled"| K[(Kafka :9092)]
+  K --> NOTIF
+  K --> EMAIL["email-service"]
   AUTH --> PG[(PostgreSQL)]
   REST --> PG
+  TABLE --> PG
+  RSV --> PG
+  NOTIF --> PG
+  EMAIL --> PG
 ```
 
-| App | Role | Transport | Default port |
-| --- | --- | --- | --- |
-| `apps/api-gateway` | HTTP entry, JWT on protected routes, client proxy | HTTP + TCP client + gRPC client | `3000` |
-| `apps/auth-service` | Register, login, JWT issue/verify, profile | TCP microservice | `3001` |
-| `apps/restaurant-service` | Restaurant CRUD, location, hours, house rules | gRPC microservice | `50051` |
-
-| Library | Import alias | Purpose |
+| App | Transport | Default port |
 | --- | --- | --- |
-| `libs/common` | `@app/common` | Service names/ports, DTOs, JWT strategy/guard, proto |
-| `libs/database` | `@app/database` | Drizzle + `pg` pool, schema |
-| `libs/kafka` | `@app/kafka` | Stub only (`KafkaService` is empty) |
+| `apps/api-gateway` | HTTP + TCP/gRPC clients | 3000 |
+| `apps/auth-service` | TCP | 3001 |
+| `apps/restaurant-service` | gRPC `restaurant.RestaurantService` | 50051 |
+| `apps/table-service` | gRPC `table.TableService` | 50052 |
+| `apps/reservation-service` | gRPC `reservation.ReservationService` + Kafka producer | 50053 |
+| `apps/notification-service` | TCP + Kafka consumer | 3003 |
+| `apps/email-service` | Kafka consumer only | — |
 
-`SERVICES.RESERVATION_SERVICE` / port `3002` is reserved in `libs/common/src/constants/services.constants.ts`; there is no app yet.
+| Library | Alias |
+| --- | --- |
+| `libs/common` | `@app/common` |
+| `libs/database` | `@app/database` |
+| `libs/kafka` | `@app/kafka` |
+
+Canonical proto files: `libs/common/src/proto/*.proto`. Kafka topics: `reservation.created`, `reservation.cancelled` (`KAFKA_TOPICS`).
 
 ## How to run
 
-Postgres via `docker-compose.yml` (`restaurant` / `restaurant_password` / `restaurant_db` on `5432`).
-
 ```bash
 npm install
-docker compose up -d
-npm run db:push          # drizzle-kit push
-# three processes:
+docker compose up -d          # postgres :5432, kafka :9092
+npm run db:push
 nest start auth-service --watch
 nest start restaurant-service --watch
-nest start api-gateway --watch   # or npm run start:dev
+nest start table-service --watch
+nest start reservation-service --watch
+nest start notification-service --watch
+nest start email-service --watch
+nest start api-gateway --watch
 ```
 
-Env:
+Env: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `AUTH_SERVICE_HOST/PORT`, `NOTIFICATION_SERVICE_HOST/PORT`, `RESTAURANT_SERVICE_URL`, `TABLE_SERVICE_URL`, `RESERVATION_SERVICE_URL`, `KAFKA_BROKER` or `KAFKA_BROKERS`.
 
-| Variable | Used by | Default |
-| --- | --- | --- |
-| `DATABASE_URL` | `DatabaseService`, drizzle-kit | `postgresql://restaurant:restaurant_password@localhost:5432/restaurant_db` |
-| `JWT_SECRET` | gateway + auth JWT | `secretKey` |
-| `PORT` | each process | service default port |
-| `AUTH_SERVICE_HOST` / `AUTH_SERVICE_PORT` | gateway TCP client | `127.0.0.1:3001` |
-| `RESTAURANT_SERVICE_URL` | gateway gRPC client | `127.0.0.1:50051` |
-
-Scripts: `build` (Nest + rspack), `test` (vitest), `lint` (oxlint; script path still says `src/ test/` and may not match the monorepo layout), `db:generate` / `db:push`.
+Email service writes rows to `email_logs` and logs to stdout (no SMTP yet). Notification rows go to `notifications`.
 
 ## Gateway HTTP API
 
-Global `ValidationPipe` (`whitelist`, `transform`). JWT: `Authorization: Bearer <token>`. Guard: `JwtAuthGuard`. User on request: `{ userId, email, role }` from `JwtStrategy.validate`.
+JWT: `Authorization: Bearer`. Mutations generally require JWT.
 
-| Method | Path | Auth | Downstream |
-| --- | --- | --- | --- |
-| GET | `/` | no | local hello |
-| GET | `/ping` | no | local health |
-| POST | `/auth/register` | no | TCP `{ cmd: 'register' }` |
-| POST | `/auth/login` | no | TCP `{ cmd: 'login' }` |
-| GET | `/auth/profile` | JWT | TCP `{ cmd: 'get_profile' }` `{ userId }` |
-| POST | `/auth/validate` | JWT | local `{ valid, user }` |
-| POST | `/restaurants` | JWT | gRPC `CreateRestaurant` (`ownerId` from JWT) |
-| GET | `/restaurants?page&limit` | no | gRPC `ListRestaurants` |
-| GET | `/restaurants/:id` | no | gRPC `GetRestaurant` |
-| PUT | `/restaurants/:id` | JWT | gRPC `UpdateRestaurant` |
-| DELETE | `/restaurants/:id` | JWT | gRPC `DeleteRestaurant` |
-| POST | `/restaurants/:id/location` | JWT | gRPC `AddLocation` |
-| POST | `/restaurants/:id/opening-hours` | JWT | gRPC `SetOpeningHours` |
-| POST | `/restaurants/:id/house-rules` | JWT | gRPC `AddHouseRule` |
+Auth: `POST /auth/register`, `POST /auth/login`, `GET /auth/profile`, `POST /auth/validate`.
 
-Auth TCP patterns also include `health_check` and `validate_token`; the gateway does not expose those as HTTP.
+Restaurants: CRUD `/restaurants`, plus `/restaurants/:id/location`, `/opening-hours`, `/house-rules`.
 
-Register body: `name`, `email`, `password` (min 6), optional `role` `USER` \| `ADMIN`. Login: `email`, `password`.
+Floors/tables: `GET|POST /restaurants/:id/floors`, `GET|PUT|DELETE /floors/:floorId`, `GET|POST /restaurants/:id/tables`, `GET|PUT|DELETE /tables/:tableId`, `GET|POST /floors/:floorId/combinations`, `DELETE /combinations/:id`.
 
-## Auth service
+Reservations: `POST /reservations` (body `CreateReservationDto`), `GET /reservations`, `GET /reservations/:id`, `POST /reservations/:id/cancel`.
 
-`AuthServiceService` uses Drizzle on `users`. Passwords: `bcryptjs` cost 10. JWT payload: `{ sub, email, role }`, expiry `1d`. Duplicate email → RPC 409. Bad login → 401. Missing profile → 404.
+Notifications: `GET /notifications`.
 
-## Restaurant service
+## Domain rules
 
-Proto: **canonical copy** `libs/common/src/proto/restaurant.proto` (package `restaurant`, service `RestaurantService`). Gateway and restaurant-service both load that path via `process.cwd()`. A duplicate exists at `apps/restaurant-service/src/proto/restaurant.proto` — keep them in sync or delete the app copy.
-
-gRPC methods map 1:1 to `RestaurantServiceController` `@GrpcMethod` handlers.
-
-`SetOpeningHours` deletes existing hours for the restaurant, then inserts the new list. `dayOfWeek`: `0` Sunday … `6` Saturday. Times are strings like `"09:00"`.
-
-## Data model (Drizzle, PostgreSQL)
-
-Schema: `libs/database/src/schema/`. Both auth and restaurant services import the **same** `DatabaseModule` and `DATABASE_URL` today. Schema comments intend no FK from restaurants to users (owner is a plain UUID). Child restaurant tables still FK to `restaurants` with `onDelete: cascade`.
-
-**users** (`role` enum `USER` \| `ADMIN`): `id`, `name`, `email` (unique), `password`, `role`, `isActive`, `emailVerifiedAt`, `lastLoginAt`, `createdAt`, `updatedAt`, `deletedAt`.
-
-**restaurants**: `id`, `name`, `description`, `phone`, `email`, `cuisine`, `isActive`, `ownerId` (no FK), timestamps.
-
-**locations**, **opening_hours**, **house_rules**: all `restaurant_id` → `restaurants.id`.
-
-`DatabaseService` is a Nest provider wrapping `pg.Pool` + `drizzle(..., { schema })`.
+- No FK from restaurant/table/reservation owner/user ids onto `users`.
+- Floors unique per `(restaurantId, floorNumber)`. Tables unique per `(floorId, tableNumber)`. Capacity > 0.
+- Reservation create checks table exists, same restaurant, partySize ≤ capacity, no overlapping non-cancelled booking on that table.
+- Cancel is allowed only for the reserving `userId` when one is set.
+- Kafka producer is best-effort: if the broker is down, reservation still persists and emit is skipped.
 
 ## Conventions
 
-- TypeScript **strict**, `"type": "module"`, `module`/`moduleResolution` `nodenext`. Local imports use `.js` extensions.
-- Path aliases only for `@app/common`, `@app/database`, `@app/kafka`.
-- Nest monorepo: `nest-cli.json` root project is `api-gateway`; builder **rspack**; proto files copied as assets.
-- Shared JWT secret between gateway Passport strategy and auth `JwtModule`.
-- Do not put restaurant FKs onto `users`. Prefer service-owned data; if splitting DBs later, split schema usage accordingly.
-- Kafka is unused; do not assume events exist.
-
-## Gaps / watchouts
-
-- No reservation, table, or booking entities yet.
-- Gateway restaurant mutations are JWT-protected but do **not** check owner/admin vs `ownerId`.
-- `listRestaurants` N+1 queries location/hours/rules per row.
-- `tsconfig.json` still references `apps/restaurant-table-reservation` which is not a current app.
-- `npm run start:prod` points at `dist/apps/restaurant-table-reservation/main`.
-- `restaurant.proto` is duplicated under the restaurant-service app.
+- ESM, `.js` import extensions, `@app/*` path aliases.
+- gRPC clients: inject `ClientGrpc`, then `getService()` in `onModuleInit`. RPC names match proto (PascalCase in `@GrpcMethod`, camelCase on the client).
+- Nest Kafka consumers use `@EventPattern` with the topic string; producer payload is `{ pattern, data }`.

@@ -3,29 +3,49 @@ syntax = "proto3";
 package table;
 
 service TableService {
-  rpc getFloor (getFloorRequest) returns (FloorResponse);
-  rpc insertFloor (insertFloorRequest) returns (FloorResponse);
-  rpc updateFloor (updateFloorRequest) returns (FloorResponse);
-  rpc deleteFloor (deleteFloorRequest) returns (FloorResponse);
+  rpc ListFloors (ListFloorsRequest) returns (ListFloorsResponse);
+  rpc GetFloor (GetFloorRequest) returns (FloorResponse);
+  rpc CreateFloor (CreateFloorRequest) returns (FloorResponse);
+  rpc UpdateFloor (UpdateFloorRequest) returns (FloorResponse);
+  rpc DeleteFloor (DeleteFloorRequest) returns (DeleteResponse);
+
+  rpc ListTables (ListTablesRequest) returns (ListTablesResponse);
+  rpc GetTable (GetTableRequest) returns (TableResponse);
+  rpc CreateTable (CreateTableRequest) returns (TableResponse);
+  rpc UpdateTable (UpdateTableRequest) returns (TableResponse);
+  rpc DeleteTable (DeleteTableRequest) returns (DeleteResponse);
+
+  rpc ListCombinations (ListCombinationsRequest) returns (ListCombinationsResponse);
+  rpc CreateCombination (CreateCombinationRequest) returns (CombinationResponse);
+  rpc DeleteCombination (DeleteCombinationRequest) returns (DeleteResponse);
 }
 
-message getFloorRequest {
+message DeleteResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListFloorsRequest {
   string restaurantId = 1;
 }
 
-message insertFloorRequest {
+message GetFloorRequest {
+  string id = 1;
+}
+
+message CreateFloorRequest {
   string restaurantId = 1;
   string name = 2;
   int32 floorNumber = 3;
 }
 
-message updateFloorRequest {
+message UpdateFloorRequest {
   string id = 1;
   string name = 2;
   int32 floorNumber = 3;
 }
 
-message deleteFloorRequest {
+message DeleteFloorRequest {
   string id = 1;
 }
 
@@ -34,4 +54,78 @@ message FloorResponse {
   string restaurantId = 2;
   string name = 3;
   int32 floorNumber = 4;
+  string createdAt = 5;
+  string updatedAt = 6;
+}
+
+message ListFloorsResponse {
+  repeated FloorResponse floors = 1;
+}
+
+message ListTablesRequest {
+  string restaurantId = 1;
+  string floorId = 2;
+}
+
+message GetTableRequest {
+  string id = 1;
+}
+
+message CreateTableRequest {
+  string restaurantId = 1;
+  string floorId = 2;
+  string ownerId = 3;
+  string name = 4;
+  int32 tableNumber = 5;
+  int32 capacity = 6;
+}
+
+message UpdateTableRequest {
+  string id = 1;
+  string name = 2;
+  int32 tableNumber = 3;
+  int32 capacity = 4;
+}
+
+message DeleteTableRequest {
+  string id = 1;
+}
+
+message TableResponse {
+  string id = 1;
+  string restaurantId = 2;
+  string floorId = 3;
+  string ownerId = 4;
+  string name = 5;
+  int32 tableNumber = 6;
+  int32 capacity = 7;
+  string createdAt = 8;
+  string updatedAt = 9;
+}
+
+message ListTablesResponse {
+  repeated TableResponse tables = 1;
+}
+
+message ListCombinationsRequest {
+  string floorId = 1;
+}
+
+message CreateCombinationRequest {
+  string floorId = 1;
+  repeated string tableIds = 2;
+}
+
+message DeleteCombinationRequest {
+  string id = 1;
+}
+
+message CombinationResponse {
+  string id = 1;
+  string floorId = 2;
+  repeated string tableIds = 3;
+}
+
+message ListCombinationsResponse {
+  repeated CombinationResponse combinations = 1;
 }

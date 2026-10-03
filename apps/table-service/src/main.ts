@@ -5,7 +5,7 @@ import { join } from 'path';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
-  const port = Number(process.env.PORT ?? SERVICES_PORTS['table-service'] ?? 50051);
+  const port = Number(process.env.PORT ?? SERVICES_PORTS['table-service'] ?? 50052);
   const protoPath = join(process.cwd(), 'libs/common/src/proto/table.proto');
 
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
@@ -21,6 +21,7 @@ async function bootstrap() {
   );
 
   await app.listen();
-  console.log(`Restaurant Service is running as a gRPC Microservice on 0.0.0.0:${port}`);
+  console.log(`Table Service is running as a gRPC Microservice on 0.0.0.0:${port}`);
 }
+
 await bootstrap();

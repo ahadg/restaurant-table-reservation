@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package reservation;
+
+service ReservationService {
+  rpc CreateReservation (CreateReservationRequest) returns (ReservationResponse);
+  rpc GetReservation (GetReservationRequest) returns (ReservationResponse);
+  rpc ListReservations (ListReservationsRequest) returns (ListReservationsResponse);
+  rpc CancelReservation (CancelReservationRequest) returns (ReservationResponse);
+}
+
+message ReservationResponse {
+  string id = 1;
+  string restaurantId = 2;
+  string tableId = 3;
+  string userId = 4;
+  string guestName = 5;
+  string guestEmail = 6;
+  string guestPhone = 7;
+  int32 partySize = 8;
+  string startTime = 9;
+  string endTime = 10;
+  string status = 11;
+  string notes = 12;
+  string createdAt = 13;
+  string updatedAt = 14;
+}
+
+message CreateReservationRequest {
+  string restaurantId = 1;
+  string tableId = 2;
+  string userId = 3;
+  string guestName = 4;
+  string guestEmail = 5;
+  string guestPhone = 6;
+  int32 partySize = 7;
+  string startTime = 8;
+  string endTime = 9;
+  string notes = 10;
+}
+
+message GetReservationRequest {
+  string id = 1;
+}
+
+message ListReservationsRequest {
+  string userId = 1;
+  string restaurantId = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message ListReservationsResponse {
+  repeated ReservationResponse reservations = 1;
+  int32 total = 2;
+}
+
+message CancelReservationRequest {
+  string id = 1;
+  string userId = 2;
+}

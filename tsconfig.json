@@ -48,13 +48,22 @@
       "path": "./apps/api-gateway/tsconfig.app.json"
     },
     {
-      "path": "./apps/restaurant-table-reservation/tsconfig.app.json"
+      "path": "./apps/auth-service/tsconfig.app.json"
     },
     {
       "path": "./apps/restaurant-service/tsconfig.app.json"
     },
     {
       "path": "./apps/table-service/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/reservation-service/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/notification-service/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/email-service/tsconfig.app.json"
     }
   ]
 }

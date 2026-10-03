@@ -3,20 +3,27 @@ import { TableServiceController } from './table-service.controller.js';
 import { TableServiceService } from './table-service.service.js';
 
 describe('TableServiceController', () => {
-  let tableServiceController: TableServiceController;
+  let controller: TableServiceController;
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [TableServiceController],
-      providers: [TableServiceService],
+      providers: [
+        {
+          provide: TableServiceService,
+          useValue: {
+            listFloors: async () => ({ floors: [] }),
+          },
+        },
+      ],
     }).compile();
 
-    tableServiceController = app.get<TableServiceController>(TableServiceController);
+    controller = app.get(TableServiceController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(tableServiceController.getHello()).toBe('Hello World!');
+  it('lists floors', async () => {
+    await expect(controller.listFloors({ restaurantId: 'r1' })).resolves.toEqual({
+      floors: [],
     });
   });
 });

@@ -24,6 +24,14 @@ import { SERVICES, SERVICES_PORTS, JwtStrategy } from '@app/common';
         },
       },
       {
+        name: SERVICES.NOTIFICATION_SERVICE,
+        transport: Transport.TCP,
+        options: {
+          host: process.env.NOTIFICATION_SERVICE_HOST || '127.0.0.1',
+          port: Number(process.env.NOTIFICATION_SERVICE_PORT || SERVICES_PORTS['notification-service'] || 3003),
+        },
+      },
+      {
         name: SERVICES.RESTAURANT_SERVICE,
         transport: Transport.GRPC,
         options: {
@@ -40,10 +48,19 @@ import { SERVICES, SERVICES_PORTS, JwtStrategy } from '@app/common';
           protoPath: join(process.cwd(), 'libs/common/src/proto/table.proto'),
           url: process.env.TABLE_SERVICE_URL || `127.0.0.1:${SERVICES_PORTS['table-service'] || 50052}`,
         },
-      }
+      },
+      {
+        name: SERVICES.RESERVATION_SERVICE,
+        transport: Transport.GRPC,
+        options: {
+          package: 'reservation',
+          protoPath: join(process.cwd(), 'libs/common/src/proto/reservation.proto'),
+          url: process.env.RESERVATION_SERVICE_URL || `127.0.0.1:${SERVICES_PORTS['reservation-service'] || 50053}`,
+        },
+      },
     ]),
   ],
   controllers: [AppController],
   providers: [AppService, JwtStrategy],
 })
-export class AppModule { }
+export class AppModule {}
