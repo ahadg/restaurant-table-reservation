@@ -13,7 +13,7 @@ import {
   HttpStatus,
   OnModuleInit,
 } from '@nestjs/common';
-import { ClientProxy, ClientGrpc } from '@nestjs/microservices';
+import type { ClientProxy, ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom, Observable } from 'rxjs';
 import { AppService } from './app.service.js';
 import {
