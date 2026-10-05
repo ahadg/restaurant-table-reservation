@@ -1,14 +1,18 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { join } from 'path';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor.js';
 import { SERVICES, SERVICES_PORTS, JwtStrategy } from '@app/common';
+import { RedisModule } from '@app/redis';
 
 @Module({
   imports: [
+    RedisModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'secretKey',
@@ -61,6 +65,10 @@ import { SERVICES, SERVICES_PORTS, JwtStrategy } from '@app/common';
     ]),
   ],
   controllers: [AppController],
-  providers: [AppService, JwtStrategy],
+  providers: [
+    AppService,
+    JwtStrategy,
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
+  ],
 })
 export class AppModule {}

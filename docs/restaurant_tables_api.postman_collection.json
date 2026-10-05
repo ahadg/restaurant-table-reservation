@@ -1,0 +1,1148 @@
+{
+  "info": {
+    "_postman_id": "1ce2cd59-0598-41f8-87c0-3cc18422132a",
+    "name": "restaurant_tables_api",
+    "description": "Full API surface of the restaurant-table-reservation API Gateway (HTTP, port 3000).\n\nRun order: the folders are numbered. Requests marked (auto-captures ...) save ids/token into collection variables, so running the folders in order (or a Collection Runner pass over the whole collection) chains together without manual copy-paste.\n\nPrerequisites:\n- infra: docker compose up -d   (Postgres + Kafka)\n- services: npm run dev         (api-gateway, auth, restaurant, table, reservation, notification, email)\n\nCollection-level auth is Bearer {{token}}; public endpoints override it with noauth.\n\nIdempotency: the important POST routes accept an `Idempotency-Key` header. Retrying with the same key (same user, method and path) replays the stored response rather than repeating the side effect. See folder \"8. Idempotency (replay demo)\". The header is optional today - omitting it runs the request normally.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "11981962",
+    "_collection_link": "https://go.postman.co/collection/11981962-1ce2cd59-0598-41f8-87c0-3cc18422132a?source=collection_link"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "0. Health",
+      "item": [
+        {
+          "name": "API Gateway Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ping"
+              ]
+            },
+            "description": "Public. Confirms the gateway process is up. Does not touch auth-service or the DB."
+          },
+          "response": []
+        },
+        {
+          "name": "API Gateway Root",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Public. Returns the AppService hello string."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "/auth/register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body && body.accessToken) {",
+                  "    pm.collectionVariables.set('token', body.accessToken);",
+                  "    console.log('Captured token from register');",
+                  "}",
+                  "if (body && body.user && body.user.id) {",
+                  "    pm.collectionVariables.set('userId', body.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"USER\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Public. Validation: name (non-empty), email (valid), password (min 6 chars), role optional. Returns 409 if the email already exists. Auto-captures `accessToken` -> {{token}} and `user.id` -> {{userId}}.\n\nNOTE: re-running with the same email returns 409; that is expected, just use /auth/login instead."
+          },
+          "response": []
+        },
+        {
+          "name": "auth/login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body && body.accessToken) {",
+                  "    pm.collectionVariables.set('token', body.accessToken);",
+                  "    console.log('Captured token from login');",
+                  "}",
+                  "if (body && body.user && body.user.id) {",
+                  "    pm.collectionVariables.set('userId', body.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Public. Returns { message, user, accessToken }. Auto-captures `accessToken` -> {{token}}.\n\nRun this FIRST if the user already exists. Every authenticated request below uses {{token}}."
+          },
+          "response": []
+        },
+        {
+          "name": "auth/profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Requires Bearer token. Fetches the current user by the `sub` claim in the JWT (via auth-service over TCP). Password is stripped from the response."
+          },
+          "response": []
+        },
+        {
+          "name": "auth/validate",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "validate"
+              ]
+            },
+            "description": "Requires Bearer token. No request body. Validated by JwtAuthGuard locally in the gateway and returns { valid: true, user }."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Restaurants",
+      "item": [
+        {
+          "name": "Create Restaurant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "    pm.collectionVariables.set('restaurantId', body.id);",
+                  "    console.log('Captured restaurantId =', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hell's Kitchen\",\n  \"description\": \"Fine dining experience\",\n  \"phone\": \"+1-555-0199\",\n  \"email\": \"info@hellskitchen.com\",\n  \"cuisine\": \"French / Fine Dining\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants"
+              ]
+            },
+            "description": "Requires Bearer token. `ownerId` is taken from the JWT, do NOT send it. Auto-captures `id` -> {{restaurantId}}, which the Floors/Tables/Reservations folders depend on."
+          },
+          "response": []
+        },
+        {
+          "name": "get restaurant list",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Public. Paginated. Returns { restaurants: [...], total }."
+          },
+          "response": []
+        },
+        {
+          "name": "get Full Restaurant Details (gRPC Query)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}"
+              ]
+            },
+            "description": "Public. Returns the restaurant including nested location, openingHours[] and houseRules[]. 404 if the id does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hell's Kitchen - Las Vegas\",\n  \"description\": \"Updated fine dining experience\",\n  \"phone\": \"+1-555-0200\",\n  \"email\": \"contact@hellskitchen.com\",\n  \"cuisine\": \"French\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}"
+              ]
+            },
+            "description": "Requires Bearer token. All fields optional; only send what you want to change."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"3570 Las Vegas Blvd S\",\n  \"city\": \"Las Vegas\",\n  \"state\": \"NV\",\n  \"zipCode\": \"89109\",\n  \"country\": \"USA\",\n  \"latitude\": \"36.1162\",\n  \"longitude\": \"-115.1745\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/location",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}",
+                "location"
+              ]
+            },
+            "description": "Requires Bearer token. Required: address, city. Optional: state, zipCode, country, latitude, longitude (lat/long are strings)."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Opening Hours",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hours\": [\n    { \"dayOfWeek\": 1, \"openTime\": \"17:00\", \"closeTime\": \"23:00\", \"isClosed\": false },\n    { \"dayOfWeek\": 2, \"openTime\": \"17:00\", \"closeTime\": \"23:00\", \"isClosed\": false },\n    { \"dayOfWeek\": 3, \"openTime\": \"17:00\", \"closeTime\": \"23:00\", \"isClosed\": false },\n    { \"dayOfWeek\": 4, \"openTime\": \"17:00\", \"closeTime\": \"23:00\", \"isClosed\": false },\n    { \"dayOfWeek\": 5, \"openTime\": \"17:00\", \"closeTime\": \"00:00\", \"isClosed\": false },\n    { \"dayOfWeek\": 6, \"openTime\": \"17:00\", \"closeTime\": \"00:00\", \"isClosed\": false },\n    { \"dayOfWeek\": 0, \"openTime\": \"00:00\", \"closeTime\": \"00:00\", \"isClosed\": true }\n  ]\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/opening-hours",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}",
+                "opening-hours"
+              ]
+            },
+            "description": "Requires Bearer token. Body is { hours: [...] }. dayOfWeek is 0=Sunday..6=Saturday."
+          },
+          "response": []
+        },
+        {
+          "name": "Add House Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rule\": \"Smart Casual Dress Code required.\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/house-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}",
+                "house-rules"
+              ]
+            },
+            "description": "Requires Bearer token. Body is { rule: string }."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Restaurant",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}"
+              ]
+            },
+            "description": "Requires Bearer token. Left last on purpose: deleting the restaurant invalidates {{restaurantId}} for the floors/tables/reservations folders."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Floors",
+      "item": [
+        {
+          "name": "Create Floor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "    pm.collectionVariables.set('floorId', body.id);",
+                  "    console.log('Captured floorId =', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ground Floor\",\n  \"floorNumber\": 1\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/floors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}",
+                "floors"
+              ]
+            },
+            "description": "Requires Bearer token. Required: floorNumber. Optional: name. Auto-captures `id` -> {{floorId}}.\n\nNOTE: floorNumber is unique per restaurant, so a repeat run returns a conflict/500 - change the number or delete the floor first."
+          },
+          "response": []
+        },
+        {
+          "name": "List Floors",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/floors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}",
+                "floors"
+              ]
+            },
+            "description": "Public. Returns { floors: [...] }."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Floor",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/floors/{{floorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "floors",
+                "{{floorId}}"
+              ]
+            },
+            "description": "Public. 404 if the floor does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Floor",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ground Floor (Main)\",\n  \"floorNumber\": 1\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/floors/{{floorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "floors",
+                "{{floorId}}"
+              ]
+            },
+            "description": "Requires Bearer token. Both fields optional."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Floor",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/floors/{{floorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "floors",
+                "{{floorId}}"
+              ]
+            },
+            "description": "Requires Bearer token. Returns { success, message }. Deleting a floor also orphans its tables, so run this after the Tables folder."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Tables",
+      "item": [
+        {
+          "name": "Create Table",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "    pm.collectionVariables.set('tableId', body.id);",
+                  "    console.log('Captured tableId =', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"floorId\": \"{{floorId}}\",\n  \"name\": \"Window Table\",\n  \"tableNumber\": 1,\n  \"capacity\": 4\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}",
+                "tables"
+              ]
+            },
+            "description": "Requires Bearer token. Required: floorId, name, tableNumber, capacity. `ownerId` comes from the JWT.\n\nThe floor must belong to {{restaurantId}} (create the floor first). Auto-captures `id` -> {{tableId}}.\n\nNOTE: tableNumber is unique per floor; a repeat run conflicts."
+          },
+          "response": []
+        },
+        {
+          "name": "List Tables",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/{{restaurantId}}/tables?floorId={{floorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants",
+                "{{restaurantId}}",
+                "tables"
+              ],
+              "query": [
+                {
+                  "key": "floorId",
+                  "value": "{{floorId}}",
+                  "description": "Optional. Omit to list every table in the restaurant."
+                }
+              ]
+            },
+            "description": "Public. Returns { tables: [...] }. `floorId` query param is optional."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Table",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tables/{{tableId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables",
+                "{{tableId}}"
+              ]
+            },
+            "description": "Public. 404 if the table does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Table",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Window Table (Corner)\",\n  \"tableNumber\": 1,\n  \"capacity\": 6\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tables/{{tableId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables",
+                "{{tableId}}"
+              ]
+            },
+            "description": "Requires Bearer token. All fields optional. Note capacity matters for reservations: partySize must be <= capacity."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Table",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tables/{{tableId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tables",
+                "{{tableId}}"
+              ]
+            },
+            "description": "Requires Bearer token. Returns { success, message }. Run after the Reservations folder, since reservations reference this table."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Table Combinations",
+      "item": [
+        {
+          "name": "Create Combination",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "    pm.collectionVariables.set('combinationId', body.id);",
+                  "    console.log('Captured combinationId =', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tableIds\": [\"{{tableId}}\"]\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/floors/{{floorId}}/combinations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "floors",
+                "{{floorId}}",
+                "combinations"
+              ]
+            },
+            "description": "Requires Bearer token. Body is { tableIds: [uuid, ...] } - at least one id. The floor must exist. Auto-captures `id` -> {{combinationId}}.\n\nTo combine several tables, add more ids here (e.g. create a second table first and list both)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Combinations",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/floors/{{floorId}}/combinations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "floors",
+                "{{floorId}}",
+                "combinations"
+              ]
+            },
+            "description": "Public. Returns { combinations: [{ id, floorId, tableIds[] }] }."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Combination",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/combinations/{{combinationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "combinations",
+                "{{combinationId}}"
+              ]
+            },
+            "description": "Requires Bearer token. Returns { success, message }."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Reservations",
+      "item": [
+        {
+          "name": "Create Reservation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "    pm.collectionVariables.set('reservationId', body.id);",
+                  "    console.log('Captured reservationId =', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text",
+                "description": "Optional but recommended. A unique value (UUID) per logical operation. Retrying with the same key replays the original response instead of creating a second resource."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantId\": \"{{restaurantId}}\",\n  \"tableId\": \"{{tableId}}\",\n  \"startTime\": \"2026-11-01T19:00:00.000Z\",\n  \"endTime\": \"2026-11-01T21:00:00.000Z\",\n  \"partySize\": 2,\n  \"guestName\": \"John Doe\",\n  \"guestEmail\": \"john.doe@example.com\",\n  \"guestPhone\": \"+1-555-0100\",\n  \"notes\": \"Window seat if possible\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
+            },
+            "description": "Requires Bearer token. `userId` comes from the JWT. Required: restaurantId, tableId, startTime, endTime (ISO8601), partySize (>=1). Optional: guestName, guestEmail, guestPhone, notes.\n\nServer-side rules: endTime after startTime; table must exist and belong to restaurantId; partySize <= table capacity; no overlapping non-cancelled booking on that table. Auto-captures `id` -> {{reservationId}}.\n\nSide effect: emits a Kafka `reservation.created` event, which notification-service turns into a notification row - check folder 7 afterwards."
+          },
+          "response": []
+        },
+        {
+          "name": "List Reservations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "restaurantId",
+                  "value": "{{restaurantId}}",
+                  "disabled": true,
+                  "description": "Optional. Enable to filter by restaurant."
+                }
+              ]
+            },
+            "description": "Requires Bearer token. Always scoped to the caller's own reservations (userId from the JWT). Returns { reservations: [...], total }."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Reservation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{reservationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "{{reservationId}}"
+              ]
+            },
+            "description": "Requires Bearer token. 404 if the reservation does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Reservation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{reservationId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "{{reservationId}}",
+                "cancel"
+              ]
+            },
+            "description": "Requires Bearer token. No body. Sets status to CANCELLED (idempotent - cancelling twice returns the same reservation) and emits a Kafka `reservation.cancelled` event.\n\nOnly the reservation's own user may cancel it, otherwise 403."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            },
+            "description": "Requires Bearer token. Returns the caller's notifications over TCP from notification-service, newest first, max 50.\n\nThis is the end-to-end proof of the Kafka pipeline: create a reservation (or cancel one), wait ~1s, then call this - a RESERVATION_CREATED / RESERVATION_CANCELLED row should appear. Requires docker compose up -d (Kafka) and notification-service running."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Idempotency (replay demo)",
+      "description": "Hit Send on this request TWICE. The first call executes and stores the response; the second call sends the identical Idempotency-Key and gets the stored response back without creating anything. Watch the response header Idempotency-Replayed and the Postman console.\n\nThe key here is deliberately FIXED (not {{$guid}}) so the replay is reproducible.",
+      "item": [
+        {
+          "name": "Create Restaurant (fixed key - press Send twice)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const replayed = pm.response.headers.get('Idempotency-Replayed');",
+                  "console.log(replayed === 'true'",
+                  "  ? 'REPLAYED -> served from the stored response; the handler did not run again.'",
+                  "  : 'EXECUTED -> first run. Press Send again with the same Idempotency-Key to see the replay.');",
+                  "pm.test('status is 201', () => pm.expect(pm.response.code).to.equal(201));",
+                  "pm.test('Idempotency-Replayed header present', () => pm.expect(replayed).to.be.oneOf(['true', 'false']));",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) { pm.collectionVariables.set('restaurantId', body.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "demo-fixed-key-0001",
+                "type": "text",
+                "description": "Fixed on purpose so a second Send replays instead of creating another restaurant."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Idempotency Demo Bistro\",\n  \"description\": \"Created once, replayed on retry\",\n  \"cuisine\": \"Test\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "restaurants"
+              ]
+            },
+            "description": "Same key + same body = the second call returns the first response and creates nothing (verify with \"get restaurant list\" that only one \"Idempotency Demo Bistro\" exists).\n\nChange the body without changing the key and you get 422 instead - a key may not be reused for a different payload."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "restaurantId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "floorId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tableId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "combinationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reservationId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

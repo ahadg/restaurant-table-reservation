@@ -39,6 +39,12 @@
       ],
       "@app/kafka/*": [
         "./libs/kafka/src/*"
+      ],
+      "@app/redis": [
+        "./libs/redis/src/index.ts"
+      ],
+      "@app/redis/*": [
+        "./libs/redis/src/*"
       ]
     }
   },

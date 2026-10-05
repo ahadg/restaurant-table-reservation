@@ -16,6 +16,7 @@ import {
 import type { ClientProxy, ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom, Observable } from 'rxjs';
 import { AppService } from './app.service.js';
+import { Idempotent } from './idempotency/idempotent.decorator.js';
 import {
   SERVICES,
   RegisterDto,
@@ -139,6 +140,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/restaurants')
   async createRestaurant(
     @CurrentUser() user: { userId: string },
@@ -190,6 +192,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/restaurants/:id/location')
   async addLocation(
     @Param('id') id: string,
@@ -202,6 +205,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/restaurants/:id/opening-hours')
   async setOpeningHours(
     @Param('id') id: string,
@@ -214,6 +218,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/restaurants/:id/house-rules')
   async addHouseRule(@Param('id') id: string, @Body() body: { rule: string }) {
     return this.grpcCall(
@@ -228,6 +233,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/restaurants/:id/floors')
   async createFloor(
     @Param('id') restaurantId: string,
@@ -268,6 +274,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/restaurants/:id/tables')
   async createTable(
     @CurrentUser() user: { userId: string },
@@ -309,6 +316,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/floors/:floorId/combinations')
   async createCombination(
     @Param('floorId') floorId: string,
@@ -330,6 +338,7 @@ export class AppController implements OnModuleInit {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @Post('/reservations')
   async createReservation(
     @CurrentUser() user: { userId: string },
