@@ -108,10 +108,15 @@ export class LokiLogger extends ConsoleLogger {
       return;
     }
     this.buffer.push({ timestamp: nowNs(), line, level });
-
+    // if buffer has reached batch size, flush
+    // we dont want to send an HTTP request to Loki for every single log.
+    // instead it batches them , would be better alot, 
     if (this.buffer.length >= this.batchSize) {
       void this.flush();
     } else if (!this.timer) {
+      // If no timer is set, set one  
+      //This is important because you don't want an HTTP request to Loki for every single log.
+      //Instead, it batches them
       this.timer = setTimeout(() => void this.flush(), this.flushIntervalMs);
       this.timer.unref?.();
     }
