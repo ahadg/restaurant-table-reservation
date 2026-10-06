@@ -43,6 +43,9 @@ services:
     volumes:
       - redis_data:/data
 
+
 volumes:
   postgres_data:
   redis_data:
+  loki_data:
+  grafana_data:

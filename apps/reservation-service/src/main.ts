@@ -3,6 +3,7 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { SERVICES_PORTS } from '@app/common';
 import { ReservationServiceModule } from './reservation-service.module.js';
+import { LokiLogger } from '@app/loki';
 
 async function bootstrap() {
   const port = Number(process.env.PORT ?? SERVICES_PORTS['reservation-service'] ?? 50053);
@@ -20,6 +21,7 @@ async function bootstrap() {
     },
   );
 
+  app.useLogger(new LokiLogger({ service: 'reservation-service' }));
   await app.listen();
   console.log(`Reservation Service is running as a gRPC Microservice on 0.0.0.0:${port}`);
 }

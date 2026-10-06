@@ -2,9 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { SERVICES_PORTS } from '@app/common';
+import { LokiLogger } from '@app/loki';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useLogger(new LokiLogger({ service: 'api-gateway' }));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

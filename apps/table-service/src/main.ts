@@ -3,6 +3,7 @@ import { TableServiceModule } from './table-service.module.js';
 import { SERVICES_PORTS } from '@app/common';
 import { join } from 'path';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { LokiLogger } from '@app/loki';
 
 async function bootstrap() {
   const port = Number(process.env.PORT ?? SERVICES_PORTS['table-service'] ?? 50052);
@@ -20,6 +21,7 @@ async function bootstrap() {
     },
   );
 
+  app.useLogger(new LokiLogger({ service: 'table-service' }));
   await app.listen();
   console.log(`Table Service is running as a gRPC Microservice on 0.0.0.0:${port}`);
 }

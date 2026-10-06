@@ -68,6 +68,15 @@
         "tsConfigPath": "libs/redis/tsconfig.lib.json"
       }
     },
+    "loki": {
+      "type": "library",
+      "root": "libs/loki",
+      "entryFile": "index",
+      "sourceRoot": "libs/loki/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/loki/tsconfig.lib.json"
+      }
+    },
     "restaurant-service": {
       "type": "application",
       "root": "apps/restaurant-service",
