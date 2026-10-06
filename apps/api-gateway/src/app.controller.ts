@@ -17,6 +17,7 @@ import type { ClientProxy, ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom, Observable } from 'rxjs';
 import { AppService } from './app.service.js';
 import { Idempotent } from './idempotency/idempotent.decorator.js';
+import { Throttle } from '@nestjs/throttler';
 import {
   SERVICES,
   RegisterDto,
@@ -96,6 +97,7 @@ export class AppController implements OnModuleInit {
   }
 
   @Get('/ping')
+  @Throttle({ default: { limit: 600, ttl: 60_000 } })
   ping() {
     return {
       message: 'API Gateway is running',
@@ -104,6 +106,7 @@ export class AppController implements OnModuleInit {
   }
 
   @Post('/auth/register')
+  @Throttle({ default: { limit: 10, ttl: 60_000, blockDuration: 60_000 } })
   async register(@Body() dto: RegisterDto) {
     try {
       return await firstValueFrom(this.authClient.send({ cmd: 'register' }, dto));
@@ -113,6 +116,7 @@ export class AppController implements OnModuleInit {
   }
 
   @Post('/auth/login')
+  @Throttle({ default: { limit: 10, ttl: 60_000, blockDuration: 60_000 } })
   async login(@Body() dto: LoginDto) {
     try {
       return await firstValueFrom(this.authClient.send({ cmd: 'login' }, dto));
@@ -339,6 +343,7 @@ export class AppController implements OnModuleInit {
 
   @UseGuards(JwtAuthGuard)
   @Idempotent()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('/reservations')
   async createReservation(
     @CurrentUser() user: { userId: string },
