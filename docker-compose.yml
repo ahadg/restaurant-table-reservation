@@ -43,6 +43,36 @@ services:
     volumes:
       - redis_data:/data
 
+  # Log store. The NestJS services run on the host (npm run start:dev), not in
+  # Docker, so they push their logs here over the HTTP API - see libs/loki.
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: restaurant-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: restaurant-grafana
+    restart: unless-stopped
+    depends_on:
+      - loki
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Handy while developing; remove if you expose Grafana beyond localhost.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    ports:
+      - "3005:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # Datasource is provisioned so the UI works on first boot.
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
 
 volumes:
   postgres_data:
