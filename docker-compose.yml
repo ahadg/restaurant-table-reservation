@@ -74,8 +74,51 @@ services:
       # Datasource is provisioned so the UI works on first boot.
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
 
+  # Trace store. Receives OTLP from the collector and serves the query API the
+  # Grafana Tempo datasource reads.
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: restaurant-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+
+  # Receives OTLP from the services (4317 gRPC / 4318 HTTP), forwards traces to
+  # Tempo, and exposes a Prometheus endpoint for metrics. The collector exists so
+  # services can push metrics over OTLP without each needing its own HTTP
+  # /metrics server - most of them are gRPC/TCP/Kafka only.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    container_name: restaurant-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    depends_on:
+      - tempo
+    volumes:
+      - ./observability/otel/collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      # Published because the services run on the host, not on this network.
+      - "4317:4317"
+      - "4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: restaurant-prometheus
+    restart: unless-stopped
+    depends_on:
+      - otel-collector
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
 volumes:
   postgres_data:
   redis_data:
   loki_data:
   grafana_data:
+  tempo_data:
+  prometheus_data:
