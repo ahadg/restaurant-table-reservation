@@ -18,11 +18,16 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 
 function resolveServiceName() {
   if (process.env.OTEL_SERVICE_NAME) {
-    return process.env.OTEL_SERVICE_NAME;
+    return { name: process.env.OTEL_SERVICE_NAME, source: 'OTEL_SERVICE_NAME' };
   }
-  // Nest builds each app to dist/apps/<name>/main.js, so the name is right there.
-  const match = (process.argv[1] ?? '').match(/dist[\\/]apps[\\/]([^\\/]+)[\\/]/);
-  return match ? match[1] : 'unknown-service';
+  // Nest runs the app as `node dist/apps/<name>/main` - no extension, and no
+  // trailing slash after the name, so match the segment after 'apps' loosely.
+  const entry = process.argv[1] ?? '';
+  const match = entry.match(/dist[\\/]apps[\\/]([^\\/]+)/);
+  if (match) {
+    return { name: match[1], source: 'bundle path' };
+  }
+  return { name: 'unknown-service', source: `unresolved (argv[1]=${entry || 'none'})` };
 }
 
 function start() {
@@ -34,9 +39,20 @@ function start() {
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318'
   ).replace(/\/+$/, '');
 
-  // The SDK builds its default resource from env, so setting this here is enough
-  // to get service.name on every span and metric.
-  process.env.OTEL_SERVICE_NAME = resolveServiceName();
+  const { name, source } = resolveServiceName();
+
+  // The SDK builds its default resource from env, so setting this before the SDK
+  // is constructed is enough to get service.name on every span and metric.
+  process.env.OTEL_SERVICE_NAME = name;
+
+  // Always say what was resolved: a wrong service.name is otherwise only visible
+  // as a mystery label in Tempo.
+  process.stderr.write(`[otel] service.name="${name}" (from ${source}) -> ${endpoint}\n`);
+  if (name === 'unknown-service') {
+    process.stderr.write(
+      '[otel] could not derive the service name; set OTEL_SERVICE_NAME to fix the label in Tempo.\n',
+    );
+  }
 
   const sdk = new NodeSDK({
     traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
