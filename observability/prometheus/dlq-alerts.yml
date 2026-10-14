@@ -1,0 +1,19 @@
+groups:
+  - name: kafka-dead-letter-queues
+    rules:
+      - alert: KafkaDeadLetterMessages
+        expr: increase(kafka_dlq_published_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Kafka messages have reached a dead letter queue
+          description: "{{ $labels.source_topic }} has received {{ $value }} dead-lettered message(s) in the last five minutes. Open the DLQ page at http://localhost:3000/admin/dead-letters."
+      - alert: KafkaDeadLetterPublishFailed
+        expr: increase(kafka_dlq_publish_failed_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Failed to write a Kafka message to its dead letter queue
+          description: "DLQ publication failed for {{ $labels.source_topic }}. The consumer will keep retrying the source message; check broker health because the partition may stop progressing."

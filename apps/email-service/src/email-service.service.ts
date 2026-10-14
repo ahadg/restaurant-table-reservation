@@ -46,10 +46,11 @@ export class EmailServiceService {
     this.logger.log(`Email [${subject}] -> ${to}`);
 
     await this.dbService.db.insert(emailLogs).values({
+      eventId: event.id,
       to,
       subject,
       body,
       status: 'SENT',
-    });
+    }).onConflictDoNothing();
   }
 }

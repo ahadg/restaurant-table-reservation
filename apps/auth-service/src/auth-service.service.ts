@@ -11,7 +11,7 @@ export class AuthServiceService {
   constructor(
     private readonly dbService: DatabaseService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   getHello(): string {
     return 'Auth Service is active';
@@ -31,6 +31,11 @@ export class AuthServiceService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
+    const role = adminEmails.includes(dto.email.toLowerCase()) ? 'ADMIN' : 'USER';
 
     const [newUser] = await this.dbService.db
       .insert(users)
@@ -38,7 +43,9 @@ export class AuthServiceService {
         name: dto.name,
         email: dto.email,
         password: hashedPassword,
-        role: dto.role || 'USER',
+        // Public registration cannot self-assign ADMIN. Bootstrap admins by
+        // explicitly allowlisting their email in ADMIN_EMAILS.
+        role,
       })
       .returning();
 

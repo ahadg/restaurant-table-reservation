@@ -12,10 +12,12 @@ import { RateLimitGuard } from './rate-limit/rate-limit.guard.js';
 import { RedisThrottlerStorage } from './rate-limit/redis-throttler.storage.js';
 import { SERVICES, SERVICES_PORTS, JwtStrategy } from '@app/common';
 import { RedisModule, RedisService } from '@app/redis';
+import { DlqModule } from './dlq/dlq.module.js';
 
 @Module({
   imports: [
     RedisModule,
+    DlqModule,
     // Global default limit; individual routes tighten it with @Throttle().
     ThrottlerModule.forRootAsync({
       imports: [RedisModule],

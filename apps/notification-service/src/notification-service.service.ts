@@ -26,11 +26,12 @@ export class NotificationServiceService {
 
     await this.dbService.db.insert(notifications).values({
       userId: event.userId,
+      eventId: event.id,
       type: 'RESERVATION_CREATED',
       title: 'Reservation confirmed',
       body: `Your table is booked from ${event.startTime} to ${event.endTime}.`,
       data: event,
-    });
+    }).onConflictDoNothing();
   }
 
   async handleReservationCancelled(event: ReservationEvent) {
@@ -40,11 +41,12 @@ export class NotificationServiceService {
 
     await this.dbService.db.insert(notifications).values({
       userId: event.userId,
+      eventId: event.id,
       type: 'RESERVATION_CANCELLED',
       title: 'Reservation cancelled',
       body: `Your reservation ${event.id} was cancelled.`,
       data: event,
-    });
+    }).onConflictDoNothing();
   }
 
   async listByUser(userId: string) {
