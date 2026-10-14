@@ -29,8 +29,6 @@
     "test:e2e": "viapps/api-gateway/test run --config ./vitest.config.e2e.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "dlq:list": "node scripts/dlq.mjs list",
-    "dlq:replay": "node scripts/dlq.mjs replay",
     "dlq:seed-demo": "node scripts/dlq-seed-demo.mjs"
   },
   "dependencies": {
