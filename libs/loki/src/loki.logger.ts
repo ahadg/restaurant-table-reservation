@@ -1,4 +1,5 @@
 import { ConsoleLogger, type ConsoleLoggerOptions, type LogLevel } from '@nestjs/common';
+import { context, trace } from '@opentelemetry/api';
 import { lokiEnabled, lokiUrl, type LokiLoggerOptions } from './loki.options.js';
 
 interface BufferedLine {
@@ -103,10 +104,16 @@ export class LokiLogger extends ConsoleLogger {
     if (!this.enabled) {
       return;
     }
-    const line = [message, ...optionalParams].map(toText).filter(Boolean).join(' ');
-    if (!line) {
+    const body = [message, ...optionalParams].map(toText).filter(Boolean).join(' ');
+    if (!body) {
       return;
     }
+    // Keep trace identifiers in the log body (not Loki labels) so a log line can
+    // be correlated with its active request without creating high-cardinality labels.
+    const spanContext = trace.getSpan(context.active())?.spanContext();
+    const line = spanContext?.traceId && spanContext.spanId
+      ? JSON.stringify({ message: body, trace_id: spanContext.traceId, span_id: spanContext.spanId })
+      : body;
     this.buffer.push({ timestamp: nowNs(), line, level });
     // if buffer has reached batch size, flush
     // we dont want to send an HTTP request to Loki for every single log.

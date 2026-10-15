@@ -9,3 +9,4 @@ export * from './interfaces/jwt-payload.interface.js';
 export * from './decorators/current-user.decorator.js';
 export * from './strategies/jwt.strategy.js';
 export * from './guards/jwt-auth.guard.js';
+export * from './observability/tcp-tracing.js';

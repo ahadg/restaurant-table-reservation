@@ -25,6 +25,7 @@ import {
   CreateReservationDto,
   JwtAuthGuard,
   CurrentUser,
+  withTcpTrace,
 } from '@app/common';
 
 interface RestaurantGrpcService {
@@ -109,7 +110,7 @@ export class AppController implements OnModuleInit {
   @Throttle({ default: { limit: 10, ttl: 60_000, blockDuration: 60_000 } })
   async register(@Body() dto: RegisterDto) {
     try {
-      return await firstValueFrom(this.authClient.send({ cmd: 'register' }, dto));
+      return await firstValueFrom(this.authClient.send({ cmd: 'register' }, withTcpTrace(dto)));
     } catch (error: any) {
       throw this.httpFromRpc(error, HttpStatus.BAD_REQUEST, 'Registration failed');
     }
@@ -119,7 +120,7 @@ export class AppController implements OnModuleInit {
   @Throttle({ default: { limit: 10, ttl: 60_000, blockDuration: 60_000 } })
   async login(@Body() dto: LoginDto) {
     try {
-      return await firstValueFrom(this.authClient.send({ cmd: 'login' }, dto));
+      return await firstValueFrom(this.authClient.send({ cmd: 'login' }, withTcpTrace(dto)));
     } catch (error: any) {
       throw this.httpFromRpc(error, HttpStatus.UNAUTHORIZED, 'Authentication failed');
     }
@@ -130,7 +131,7 @@ export class AppController implements OnModuleInit {
   async getProfile(@CurrentUser() user: { userId: string; email: string; role?: string }) {
     try {
       return await firstValueFrom(
-        this.authClient.send({ cmd: 'get_profile' }, { userId: user.userId }),
+        this.authClient.send({ cmd: 'get_profile' }, withTcpTrace({ userId: user.userId })),
       );
     } catch (error: any) {
       throw this.httpFromRpc(error, HttpStatus.NOT_FOUND, 'Profile fetch failed');
@@ -401,7 +402,10 @@ export class AppController implements OnModuleInit {
   async listNotifications(@CurrentUser() user: { userId: string }) {
     try {
       return await firstValueFrom(
-        this.notificationClient.send({ cmd: 'list_notifications' }, { userId: user.userId }),
+        this.notificationClient.send(
+          { cmd: 'list_notifications' },
+          withTcpTrace({ userId: user.userId }),
+        ),
       );
     } catch (error: any) {
       throw this.httpFromRpc(error, HttpStatus.INTERNAL_SERVER_ERROR, 'Failed to list notifications');

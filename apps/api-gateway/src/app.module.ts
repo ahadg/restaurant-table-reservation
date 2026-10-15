@@ -13,6 +13,7 @@ import { RedisThrottlerStorage } from './rate-limit/redis-throttler.storage.js';
 import { SERVICES, SERVICES_PORTS, JwtStrategy } from '@app/common';
 import { RedisModule, RedisService } from '@app/redis';
 import { DlqModule } from './dlq/dlq.module.js';
+import { HttpMetricsInterceptor } from './observability/http-metrics.interceptor.js';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { DlqModule } from './dlq/dlq.module.js';
     // Guards run before interceptors, so throttling is evaluated first and can
     // reject a request before it reaches the idempotency layer.
     { provide: APP_GUARD, useClass: RateLimitGuard },
+    { provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor },
     { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
   ],
 })

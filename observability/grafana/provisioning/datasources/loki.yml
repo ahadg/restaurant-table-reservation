@@ -12,3 +12,9 @@ datasources:
     editable: true
     jsonData:
       maxLines: 1000
+      derivedFields:
+        - name: Trace ID
+          matcherType: regex
+          matcherRegex: '"trace_id":"([0-9a-f]{32})"'
+          url: '$${__value.raw}'
+          datasourceUid: tempo

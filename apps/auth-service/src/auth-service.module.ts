@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { DatabaseModule } from '@app/database';
+import { TcpTracePropagationInterceptor } from '@app/common';
 import { AuthServiceController } from './auth-service.controller.js';
 import { AuthServiceService } from './auth-service.service.js';
 
@@ -13,6 +15,9 @@ import { AuthServiceService } from './auth-service.service.js';
     }),
   ],
   controllers: [AuthServiceController],
-  providers: [AuthServiceService],
+  providers: [
+    AuthServiceService,
+    { provide: APP_INTERCEPTOR, useClass: TcpTracePropagationInterceptor },
+  ],
 })
 export class AuthServiceModule {}
