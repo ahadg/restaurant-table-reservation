@@ -45,6 +45,13 @@ function start() {
   // is constructed is enough to get service.name on every span and metric.
   process.env.OTEL_SERVICE_NAME = name;
 
+  // Keep full traces in local development; use parent-based 10% head sampling
+  // by default in production. Standard OTEL_* overrides remain authoritative.
+  // Metrics are unaffected. Parent-based sampling keeps a distributed trace
+  // consistently sampled after the first service makes the decision.
+  process.env.OTEL_TRACES_SAMPLER ??= 'parentbased_traceidratio';
+  process.env.OTEL_TRACES_SAMPLER_ARG ??= process.env.NODE_ENV === 'production' ? '0.5' : '1.0';
+
   // Always say what was resolved: a wrong service.name is otherwise only visible
   // as a mystery label in Tempo.
   process.stderr.write(`[otel] service.name="${name}" (from ${source}) -> ${endpoint}\n`);

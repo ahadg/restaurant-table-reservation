@@ -1,6 +1,8 @@
 import {
   context,
+  isSpanContextValid,
   propagation,
+  trace,
   type Context,
   type TextMapGetter,
   type TextMapSetter,
@@ -28,7 +30,11 @@ const getter: TextMapGetter<Record<string, string>> = {
 };
 
 /** Wrap a Nest TCP request with W3C trace headers; the receiving interceptor unwraps it. */
-export function withTcpTrace<T>(payload: T): TcpTraceEnvelope {
+export function withTcpTrace<T>(payload: T): T | TcpTraceEnvelope {
+  const spanContext = trace.getSpan(context.active())?.spanContext();
+  // Don't add a wrapper or allocate a carrier if this work has no active trace.
+  if (!spanContext || !isSpanContextValid(spanContext)) return payload;
+
   const headers: Record<string, string> = {};
   propagation.inject(context.active(), headers, setter);
   return { [TRACE_ENVELOPE]: true, headers, payload };
