@@ -8,7 +8,7 @@ groups:
           severity: warning
         annotations:
           summary: Kafka messages have reached a dead letter queue
-          description: "{{ $labels.source_topic }} has received {{ $value }} dead-lettered message(s) in the last five minutes. Open the DLQ page at http://localhost:3000/admin/dead-letters."
+          description: "{{ $labels.source_topic }} has received {{ $value }} dead-lettered message(s) in the last five minutes. Open the live DLQ manager at http://localhost:3000/admin/dead-letters/manage."
       - alert: KafkaDeadLetterPublishFailed
         expr: increase(kafka_dlq_publish_failed_total[5m]) > 0
         for: 0m
