@@ -46,7 +46,7 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-
+  /** get events from outbox table and publish them to kafka (only 25 events at a time)*/
   private async claimBatch(): Promise<OutboxEvent[]> {
     return this.dbService.db.transaction(async (tx) => {
       const now = new Date();
