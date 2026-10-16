@@ -3,3 +3,4 @@ export * from './restaurant.js';
 export * from './table.js';
 export * from './reservation.js';
 export * from './notification.js';
+export * from './outbox-event.js';

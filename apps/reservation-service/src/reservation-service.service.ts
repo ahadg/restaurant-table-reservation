@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
-import { DatabaseService, reservations, restaurantTable } from '@app/database';
-import { KafkaService } from '@app/kafka';
+import { DatabaseService, outboxEvents, reservations, restaurantTable } from '@app/database';
 import { KAFKA_TOPICS } from '@app/common';
 import { and, count, desc, eq, gt, lt, ne, type SQL } from 'drizzle-orm';
 
@@ -9,7 +8,6 @@ import { and, count, desc, eq, gt, lt, ne, type SQL } from 'drizzle-orm';
 export class ReservationServiceService {
   constructor(
     private readonly dbService: DatabaseService,
-    private readonly kafka: KafkaService,
   ) {}
 
   async createReservation(data: {
@@ -34,55 +32,38 @@ export class ReservationServiceService {
       });
     }
 
-    const [table] = await this.dbService.db
-      .select()
-      .from(restaurantTable)
-      .where(eq(restaurantTable.id, data.tableId));
+    return this.dbService.db.transaction(async (tx) => {
+      const [table] = await tx
+        .select()
+        .from(restaurantTable)
+        .where(eq(restaurantTable.id, data.tableId));
 
-    if (!table) {
-      throw new RpcException({
-        code: 5,
-        message: `Table with ID ${data.tableId} not found`,
-      });
-    }
+      if (!table) {
+        throw new RpcException({ code: 5, message: `Table with ID ${data.tableId} not found` });
+      }
+      if (table.restaurantId !== data.restaurantId) {
+        throw new RpcException({ code: 3, message: 'Table does not belong to this restaurant' });
+      }
+      if (data.partySize > table.capacity) {
+        throw new RpcException({ code: 3, message: `Party size exceeds table capacity of ${table.capacity}` });
+      }
 
-    if (table.restaurantId !== data.restaurantId) {
-      throw new RpcException({
-        code: 3,
-        message: 'Table does not belong to this restaurant',
-      });
-    }
-
-    if (data.partySize > table.capacity) {
-      throw new RpcException({
-        code: 3,
-        message: `Party size exceeds table capacity of ${table.capacity}`,
-      });
-    }
-
-    const overlapping = await this.dbService.db
-      .select({ id: reservations.id })
-      .from(reservations)
-      .where(
-        and(
+      const overlapping = await tx
+        .select({ id: reservations.id })
+        .from(reservations)
+        .where(and(
           eq(reservations.tableId, data.tableId),
           ne(reservations.status, 'CANCELLED'),
           lt(reservations.startTime, end),
           gt(reservations.endTime, start),
-        ),
-      )
-      .limit(1);
+        ))
+        .limit(1);
 
-    if (overlapping.length > 0) {
-      throw new RpcException({
-        code: 6,
-        message: 'Table is already reserved for that time window',
-      });
-    }
+      if (overlapping.length > 0) {
+        throw new RpcException({ code: 6, message: 'Table is already reserved for that time window' });
+      }
 
-    const [row] = await this.dbService.db
-      .insert(reservations)
-      .values({
+      const [row] = await tx.insert(reservations).values({
         restaurantId: data.restaurantId,
         tableId: data.tableId,
         userId: data.userId || null,
@@ -94,12 +75,16 @@ export class ReservationServiceService {
         endTime: end,
         status: 'CONFIRMED',
         notes: data.notes || null,
-      })
-      .returning();
+      }).returning();
 
-    const payload = this.formatReservation(row);
-    await this.kafka.emit(KAFKA_TOPICS.RESERVATION_CREATED, payload);
-    return payload;
+      const payload = this.formatReservation(row);
+      await tx.insert(outboxEvents).values({
+        topic: KAFKA_TOPICS.RESERVATION_CREATED,
+        messageKey: payload.restaurantId || payload.id,
+        payload,
+      });
+      return payload;
+    });
   }
 
   async getReservation(id: string) {
@@ -153,44 +138,33 @@ export class ReservationServiceService {
   }
 
   async cancelReservation(data: { id: string; userId?: string }) {
-    const existing = await this.getRaw(data.id);
+    return this.dbService.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(reservations)
+        .where(eq(reservations.id, data.id))
+        .for('update');
 
-    if (data.userId && existing.userId && existing.userId !== data.userId) {
-      throw new RpcException({
-        code: 7,
-        message: 'You can only cancel your own reservation',
+      if (!existing) {
+        throw new RpcException({ code: 5, message: `Reservation with ID ${data.id} not found` });
+      }
+      if (data.userId && existing.userId && existing.userId !== data.userId) {
+        throw new RpcException({ code: 7, message: 'You can only cancel your own reservation' });
+      }
+      if (existing.status === 'CANCELLED') return this.formatReservation(existing);
+
+      const [row] = await tx.update(reservations)
+        .set({ status: 'CANCELLED' })
+        .where(eq(reservations.id, data.id))
+        .returning();
+      const payload = this.formatReservation(row);
+      await tx.insert(outboxEvents).values({
+        topic: KAFKA_TOPICS.RESERVATION_CANCELLED,
+        messageKey: payload.restaurantId || payload.id,
+        payload,
       });
-    }
-
-    if (existing.status === 'CANCELLED') {
-      return this.formatReservation(existing);
-    }
-
-    const [row] = await this.dbService.db
-      .update(reservations)
-      .set({ status: 'CANCELLED' })
-      .where(eq(reservations.id, data.id))
-      .returning();
-
-    const payload = this.formatReservation(row);
-    await this.kafka.emit(KAFKA_TOPICS.RESERVATION_CANCELLED, payload);
-    return payload;
-  }
-
-  private async getRaw(id: string) {
-    const [row] = await this.dbService.db
-      .select()
-      .from(reservations)
-      .where(eq(reservations.id, id));
-
-    if (!row) {
-      throw new RpcException({
-        code: 5,
-        message: `Reservation with ID ${id} not found`,
-      });
-    }
-
-    return row;
+      return payload;
+    });
   }
 
   private formatReservation(row: typeof reservations.$inferSelect) {
