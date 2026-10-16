@@ -21,6 +21,7 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
   ) { }
 
   onModuleInit(): void {
+    // interval to poll outbox table and publish events to kafka
     this.timer = setInterval(() => void this.poll(), POLL_INTERVAL_MS);
     this.timer.unref?.();
     void this.poll();
