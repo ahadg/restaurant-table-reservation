@@ -21,7 +21,7 @@
     "dev:email": "OTEL_SERVICE_NAME=email-service NODE_OPTIONS=\"--import ./observability/otel/instrumentation.mjs\" nest start --watch email-service",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/restaurant-table-reservation/main",
-    "lint": "oxlint src/ test/",
+    "lint": "oxlint apps libs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
