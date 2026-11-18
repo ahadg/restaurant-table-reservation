@@ -6,7 +6,7 @@ FROM node:22-alpine AS builder
 WORKDIR /usr/src/app
 
 # Install dependencies needed for compilation
-COPY package*.json ./
+COPY package*.json .npmrc* ./
 RUN npm ci
 
 # Copy monorepo configuration and source code
@@ -24,7 +24,7 @@ FROM node:22-alpine AS dependencies
 
 WORKDIR /usr/src/app
 
-COPY package*.json ./
+COPY package*.json .npmrc* ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # ------------------------------------------------------------------------------
@@ -58,4 +58,3 @@ USER node
 EXPOSE 3000
 
 CMD ["node", "dist/apps/api-gateway/main.js"]
-
